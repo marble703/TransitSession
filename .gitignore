@@ -1,0 +1,11 @@
+.vscode/
+.github/
+.cache/
+
+.clangd
+
+build/
+log/
+
+*.log
+*.ini
