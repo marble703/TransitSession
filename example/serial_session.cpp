@@ -1,4 +1,4 @@
-#include "core/async_session.hpp"
+#include "transport/serial/serial_session.hpp"
 
 #include <chrono>
 #include <iomanip>
@@ -6,23 +6,24 @@
 
 int main() {
     boost::asio::io_context io_context;
-    auto session = std::make_shared<AsyncSession<boost::asio::serial_port>>(io_context);
-    auto ec      = session->open("/dev/ttyACM0");
+
+    session::serial::SerialPortConfig config {
+        .device_path      = "/dev/ttyACM0",
+        .baud_rate        = 115200,
+        .character_size   = 8,
+        .parity           = boost::asio::serial_port_base::parity::none,
+        .stop_bits        = boost::asio::serial_port_base::stop_bits::one,
+        .flow_control     = boost::asio::serial_port_base::flow_control::none,
+        .duplex_mode      = session::serial::SerialSession::DuplexMode::full_duplex,
+        .read_buffer_size = 1024,
+    };
+
+    auto [session, ec] = session::serial::SerialSession::create(io_context, config);
     if (ec) {
         std::cerr << "Error opening serial port: " << ec.message() << "\n";
         return 1;
     }
 
-    session->socket().set_option(boost::asio::serial_port_base::baud_rate(9600));
-    session->socket().set_option(boost::asio::serial_port_base::character_size(8));
-    session->socket().set_option(
-        boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none)
-    );
-    session->socket().set_option(
-        boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one)
-    );
-
-    session->set_duplex_mode(AsyncSession<boost::asio::serial_port>::DuplexMode::full_duplex);
     session->set_read_handler([](boost::system::error_code /*ec*/, std::vector<char> data) {
         std::cout << "Received data (" << data.size() << " bytes): ";
 

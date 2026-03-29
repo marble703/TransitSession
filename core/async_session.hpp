@@ -1,7 +1,9 @@
+#pragma once
+
 #include <boost/asio.hpp>
 
 #include <deque>
-
+namespace session {
 template<typename SocketT>
 class AsyncSession: public std::enable_shared_from_this<AsyncSession<SocketT>> {
 public:
@@ -14,15 +16,28 @@ public:
 
     using ReadHandler = std::function<void(boost::system::error_code, std::vector<char>)>;
 
+    /**
+     * @brief Construct a new Async Session object
+     * 
+     * @param io_context The io_context to be used for asynchronous operations
+     */
     explicit AsyncSession(boost::asio::io_context& io_context):
         strand_(boost::asio::make_strand(io_context)),
-        socket_(io_context) {
-    }
+        socket_(io_context) {}
 
+    /**
+     * @brief Get the socket object
+     */
     SocketT& socket() {
         return socket_;
     }
 
+    /**
+     * @brief Open the socket
+     * 
+     * @param args The arguments to be passed to the socket's open method
+     * @return boost::system::error_code The error code
+     */
     template<typename... Args>
     boost::system::error_code open(Args&&... args) {
         boost::system::error_code ec;
@@ -216,3 +231,4 @@ private:
     bool write_in_progress_ = false;
     bool closed_            = false;
 };
+} // namespace session
