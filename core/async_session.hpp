@@ -1,15 +1,12 @@
 #include <boost/asio.hpp>
 
-#include <cstddef>
 #include <deque>
-#include <functional>
-#include <memory>
-#include <utility>
-#include <vector>
 
 template<typename SocketT>
 class AsyncSession: public std::enable_shared_from_this<AsyncSession<SocketT>> {
 public:
+    const static std::size_t default_read_buffer_size = 1024;
+
     enum class DuplexMode {
         full_duplex,
         half_duplex,
@@ -17,16 +14,21 @@ public:
 
     using ReadHandler = std::function<void(boost::system::error_code, std::vector<char>)>;
 
-    template<typename... Args>
-    explicit AsyncSession(boost::asio::io_context& io_context, Args&&... args):
+    explicit AsyncSession(boost::asio::io_context& io_context):
         strand_(boost::asio::make_strand(io_context)),
-        socket_(io_context, std::forward<Args>(args)...),
-        read_buffer_(k_default_read_buffer_size) {}
+        socket_(io_context) {
+    }
 
     SocketT& socket() {
         return socket_;
     }
 
+    template<typename... Args>
+    boost::system::error_code open(Args&&... args) {
+        boost::system::error_code ec;
+        socket_.open(std::forward<Args>(args)..., ec);
+        return ec;
+    }
     void set_duplex_mode(DuplexMode duplex_mode) {
         boost::asio::post(strand_, [this, self = this->shared_from_this(), duplex_mode]() {
             duplex_mode_ = duplex_mode;
@@ -37,8 +39,11 @@ public:
     void set_read_handler(ReadHandler read_handler) {
         boost::asio::post(
             strand_,
-            [this, self = this->shared_from_this(), read_handler = std::move(read_handler)](
-            ) mutable { read_handler_ = std::move(read_handler); }
+            [this,
+             self         = this->shared_from_this(),
+             read_handler = std::move(read_handler)]() mutable {
+                read_handler_ = std::move(read_handler);
+            }
         );
     }
 
@@ -91,8 +96,6 @@ public:
     }
 
 private:
-    static constexpr std::size_t k_default_read_buffer_size = 1024;
-
     bool can_start_read() const {
         if (!read_enabled_ || read_in_progress_ || closed_) {
             return false;
@@ -134,9 +137,10 @@ private:
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand_,
-                [this,
-                 self = this->shared_from_this(
-                 )](boost::system::error_code ec, std::size_t bytes_transferred) {
+                [this, self = this->shared_from_this()](
+                    boost::system::error_code ec,
+                    std::size_t bytes_transferred
+                ) {
                     read_in_progress_ = false;
 
                     if (ec) {
@@ -164,9 +168,10 @@ private:
             boost::asio::buffer(*write_queue_.front()),
             boost::asio::bind_executor(
                 strand_,
-                [this,
-                 self = this->shared_from_this(
-                 )](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
+                [this, self = this->shared_from_this()](
+                    boost::system::error_code ec,
+                    std::size_t /*bytes_transferred*/
+                ) {
                     write_in_progress_ = false;
 
                     if (ec) {
@@ -202,8 +207,10 @@ private:
     SocketT socket_;
     DuplexMode duplex_mode_ = DuplexMode::full_duplex;
     ReadHandler read_handler_;
-    std::vector<char> read_buffer_;
+    std::vector<char> read_buffer_ = std::vector<char>(default_read_buffer_size);
+
     std::deque<std::shared_ptr<std::vector<char>>> write_queue_;
+
     bool read_enabled_      = false;
     bool read_in_progress_  = false;
     bool write_in_progress_ = false;
