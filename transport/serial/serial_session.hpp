@@ -12,11 +12,15 @@ public:
     using AsyncSession<boost::asio::serial_port>::AsyncSession;
     using DuplexMode = AsyncSession<boost::asio::serial_port>::DuplexMode;
 
-    static std::pair<std::shared_ptr<SerialSession>, boost::system::error_code>
-    create(boost::asio::io_context& io_context, const SerialPortConfig& config) {
+    static std::shared_ptr<SerialSession> create(
+        boost::asio::io_context& io_context,
+        const SerialPortConfig& config,
+        boost::system::error_code* ec = nullptr
+    ) {
         auto session = std::make_shared<SerialSession>(io_context);
-        auto ec      = session->open(config);
-        return { std::move(session), ec };
+        *ec          = session->open(config);
+
+        return session;
     }
 
     boost::system::error_code open(const SerialPortConfig& config) {

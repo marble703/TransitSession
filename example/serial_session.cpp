@@ -1,5 +1,4 @@
 #include "transport/serial/serial_session.hpp"
-
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -18,10 +17,11 @@ int main() {
         .read_buffer_size = 1024,
     };
 
-    auto [session, ec] = session::serial::SerialSession::create(io_context, config);
+    boost::system::error_code ec;
+    auto session = session::serial::SerialSession::create(io_context, config, &ec);
     if (ec) {
         std::cerr << "Error opening serial port: " << ec.message() << "\n";
-        return 1;
+        return -1;
     }
 
     session->set_read_handler([](boost::system::error_code /*ec*/, std::vector<char> data) {

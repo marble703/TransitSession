@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 
 #include <deque>
+
 namespace session {
 template<typename SocketT>
 class AsyncSession: public std::enable_shared_from_this<AsyncSession<SocketT>> {
@@ -43,6 +44,10 @@ public:
         boost::system::error_code ec;
         socket_.open(std::forward<Args>(args)..., ec);
         return ec;
+    }
+
+    bool is_open() const {
+        return socket_.is_open();
     }
     void set_duplex_mode(DuplexMode duplex_mode) {
         boost::asio::post(strand_, [this, self = this->shared_from_this(), duplex_mode]() {
