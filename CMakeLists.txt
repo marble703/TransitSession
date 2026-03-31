@@ -17,7 +17,12 @@ add_executable(TransitSession
     example/serial_session.cpp
 )
 
+add_executable(TransitSessionCan
+    example/can_session.cpp
+)
+
 target_include_directories(TransitSession PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(TransitSessionCan PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(TransitSession
     PRIVATE
@@ -26,6 +31,14 @@ target_link_libraries(TransitSession
         Threads::Threads
 )
 
+target_link_libraries(TransitSessionCan
+    PRIVATE
+        Boost::system
+        Boost::thread
+        Threads::Threads
+)
+
 target_compile_options(TransitSession PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(TransitSessionCan PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
 
