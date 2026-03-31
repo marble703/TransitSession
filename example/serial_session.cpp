@@ -10,9 +10,9 @@ int main() {
         .device_path      = "/dev/ttyACM0",
         .baud_rate        = 115200,
         .character_size   = 8,
-        .parity           = boost::asio::serial_port_base::parity::none,
-        .stop_bits        = boost::asio::serial_port_base::stop_bits::one,
-        .flow_control     = boost::asio::serial_port_base::flow_control::none,
+        .parity           = session::serial::Parity::none,
+        .stop_bits        = session::serial::StopBits::one,
+        .flow_control     = session::serial::FlowControl::none,
         .duplex_mode      = session::serial::SerialSession::DuplexMode::full_duplex,
         .read_buffer_size = 1024,
     };
