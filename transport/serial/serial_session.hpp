@@ -10,18 +10,32 @@
 
 namespace session::serial {
 
+/**
+ * @brief 串口会话，提供字节流式异步收发能力。
+ */
 class SerialSession:
     public AsyncTransportSession<SerialSession, std::vector<char>, std::vector<char>>,
     public std::enable_shared_from_this<SerialSession> {
 public:
+    /** @brief 读取回调类型。 */
     using Base        = AsyncTransportSession<SerialSession, std::vector<char>, std::vector<char>>;
     using ReadHandler = Base::ReadHandler;
     using DuplexMode   = session::serial::DuplexMode;
 
+    /**
+     * @brief 构造一个串口会话。
+     * @param io_context Boost.Asio 运行上下文。
+     */
     explicit SerialSession(boost::asio::io_context& io_context):
         Base(io_context),
         socket_(io_context) {}
 
+    /**
+     * @brief 创建并打开串口会话。
+     * @param io_context Boost.Asio 运行上下文。
+     * @param config 串口配置。
+     * @param ec 若提供，则返回打开结果。
+     */
     static std::shared_ptr<SerialSession> create(
         boost::asio::io_context& io_context,
         const SerialPortConfig& config,
@@ -38,6 +52,9 @@ public:
         return session;
     }
 
+    /**
+     * @brief 打开串口并应用配置。
+     */
     boost::system::error_code open(const SerialPortConfig& config) {
         boost::system::error_code ec;
         socket_.open(config.device_path, ec);
@@ -54,6 +71,9 @@ public:
         return ec;
     }
 
+    /**
+     * @brief 将串口参数应用到当前会话。
+     */
     boost::system::error_code apply_config(const SerialPortConfig& config) {
         auto& port = socket_;
 
@@ -88,18 +108,24 @@ public:
         return {};
     }
 
+    /** @brief 判断串口是否已打开。 */
     bool is_open() const {
         return socket_.is_open();
     }
 
+    /** @brief 获取底层串口对象。 */
     boost::asio::serial_port& socket() {
         return socket_;
     }
 
+    /** @brief 获取底层串口对象（只读）。 */
     const boost::asio::serial_port& socket() const {
         return socket_;
     }
 
+    /**
+     * @brief 设置串口方向模式。
+     */
     void set_duplex_mode(DuplexMode duplex_mode) {
         boost::asio::post(strand(), [this, self = shared_from_this(), duplex_mode]() {
             duplex_mode_ = duplex_mode;
@@ -107,6 +133,9 @@ public:
         });
     }
 
+    /**
+     * @brief 设置读取缓冲区大小。
+     */
     void set_read_buffer_size(std::size_t read_buffer_size) {
         boost::asio::post(strand(), [this, self = shared_from_this(), read_buffer_size]() {
             if (is_read_in_progress() || read_buffer_size == 0U) {
@@ -117,6 +146,7 @@ public:
         });
     }
 
+    /** @brief 判断是否允许启动下一次读取。 */
     bool can_start_read() const {
         if (!is_read_enabled() || is_read_in_progress() || is_closed()) {
             return false;
@@ -129,6 +159,7 @@ public:
         return true;
     }
 
+    /** @brief 判断是否允许启动下一次写入。 */
     bool can_start_write() const {
         if (is_write_in_progress() || !has_pending_writes() || is_closed()) {
             return false;
@@ -141,6 +172,7 @@ public:
         return true;
     }
 
+    /** @brief 启动一次异步读取。 */
     void do_read() {
         mark_read_started();
 
@@ -168,6 +200,7 @@ public:
         );
     }
 
+    /** @brief 启动一次异步写入。 */
     void do_write() {
         auto buffer = current_write();
         if (!buffer) {
@@ -196,6 +229,7 @@ public:
         );
     }
 
+    /** @brief 关闭底层串口资源。 */
     void close_transport() {
         boost::system::error_code ec;
         socket_.close(ec);

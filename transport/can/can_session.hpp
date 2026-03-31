@@ -22,17 +22,31 @@
 
 namespace session::can {
 
+/**
+ * @brief Linux SocketCAN 会话，提供帧级异步收发。
+ */
 class CanSession:
     public AsyncTransportSession<CanSession, CanFrame, CanFrame>,
     public std::enable_shared_from_this<CanSession> {
 public:
+    /** @brief 读取回调类型。 */
     using Base        = AsyncTransportSession<CanSession, CanFrame, CanFrame>;
     using ReadHandler = Base::ReadHandler;
 
+    /**
+     * @brief 构造一个 CAN 会话。
+     * @param io_context Boost.Asio 运行上下文。
+     */
     explicit CanSession(boost::asio::io_context& io_context):
         Base(io_context),
         socket_(io_context) {}
 
+    /**
+     * @brief 创建并打开 CAN 会话。
+     * @param io_context Boost.Asio 运行上下文。
+     * @param config CAN 配置。
+     * @param ec 若提供，则返回打开结果。
+     */
     static std::shared_ptr<CanSession> create(
         boost::asio::io_context& io_context,
         const CanConfig& config,
@@ -49,6 +63,9 @@ public:
         return session;
     }
 
+    /**
+     * @brief 打开 CAN 接口并配置 SocketCAN 选项。
+     */
     boost::system::error_code open(const CanConfig& config) {
         if (is_open()) {
             boost::system::error_code already_open_ec =
@@ -98,26 +115,32 @@ public:
         return {};
     }
 
+    /** @brief 判断 CAN 套接字是否已打开。 */
     bool is_open() const {
         return socket_.is_open();
     }
 
+    /** @brief 获取底层流描述符。 */
     boost::asio::posix::stream_descriptor& socket() {
         return socket_;
     }
 
+    /** @brief 获取底层流描述符（只读）。 */
     const boost::asio::posix::stream_descriptor& socket() const {
         return socket_;
     }
 
+    /** @brief 判断是否允许启动下一次读取。 */
     bool can_start_read() const {
         return is_read_enabled() && !is_read_in_progress() && !is_closed();
     }
 
+    /** @brief 判断是否允许启动下一次写入。 */
     bool can_start_write() const {
         return is_write_in_progress() == false && has_pending_writes() && !is_closed();
     }
 
+    /** @brief 启动一次异步 CAN 帧读取。 */
     void do_read() {
         mark_read_started();
 
@@ -148,6 +171,7 @@ public:
         );
     }
 
+    /** @brief 启动一次异步 CAN 帧写入。 */
     void do_write() {
         auto frame = current_write();
         if (!frame) {
@@ -182,6 +206,7 @@ public:
         );
     }
 
+    /** @brief 关闭底层 CAN 资源。 */
     void close_transport() {
         try {
             socket_.close();

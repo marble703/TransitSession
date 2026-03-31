@@ -8,14 +8,32 @@
 #include <utility>
 
 namespace session {
+/**
+ * @brief 通用异步通信核心，负责 strand 调度、发送队列和会话状态管理。
+ *
+ * @tparam Derived 具体协议会话类型，采用 CRTP 方式提供协议相关读写实现。
+ * @tparam ReadValue 读取回调返回的数据类型。
+ * @tparam WriteValue 发送队列中保存的数据类型，默认与读取类型一致。
+ */
 template<typename Derived, typename ReadValue, typename WriteValue = ReadValue>
 class AsyncTransportSession {
 public:
+    /**
+     * @brief 读取完成时触发的回调类型。
+     */
     using ReadHandler = std::function<void(boost::system::error_code, ReadValue)>;
 
+    /**
+     * @brief 构造一个异步通信核心。
+     * @param io_context Boost.Asio 运行上下文。
+     */
     explicit AsyncTransportSession(boost::asio::io_context& io_context):
         strand_(boost::asio::make_strand(io_context)) {}
 
+    /**
+     * @brief 设置读取回调。
+     * @param read_handler 读取完成后调用的处理函数。
+     */
     void set_read_handler(ReadHandler read_handler) {
         boost::asio::post(
             strand_,
@@ -27,6 +45,9 @@ public:
         );
     }
 
+    /**
+     * @brief 启动异步读取调度。
+     */
     void start_reading() {
         boost::asio::post(strand_, [this, self = derived_shared_from_this()]() {
             read_enabled_ = true;
@@ -34,12 +55,19 @@ public:
         });
     }
 
+    /**
+     * @brief 停止后续读取调度。
+     */
     void stop_reading() {
         boost::asio::post(strand_, [this, self = derived_shared_from_this()]() {
             read_enabled_ = false;
         });
     }
 
+    /**
+     * @brief 发送一个待传输的对象。
+     * @param message 协议层定义的发送数据。
+     */
     void send(WriteValue message) {
         boost::asio::post(
             strand_,
@@ -50,6 +78,9 @@ public:
         );
     }
 
+    /**
+     * @brief 关闭会话并清空待发送队列。
+     */
     void close() {
         boost::asio::post(strand_, [this, self = derived_shared_from_this()]() {
             if (closed_) {
@@ -64,6 +95,9 @@ public:
     }
 
 protected:
+    /**
+     * @brief 获取当前 strand。
+     */
     boost::asio::strand<boost::asio::io_context::executor_type>& strand() {
         return strand_;
     }
@@ -72,26 +106,44 @@ protected:
         return strand_;
     }
 
+    /**
+     * @brief 判断是否允许继续读取。
+     */
     bool is_read_enabled() const {
         return read_enabled_;
     }
 
+    /**
+     * @brief 判断读取操作是否正在进行中。
+     */
     bool is_read_in_progress() const {
         return read_in_progress_;
     }
 
+    /**
+     * @brief 判断写入操作是否正在进行中。
+     */
     bool is_write_in_progress() const {
         return write_in_progress_;
     }
 
+    /**
+     * @brief 判断会话是否已关闭。
+     */
     bool is_closed() const {
         return closed_;
     }
 
+    /**
+     * @brief 判断是否还有待发送的数据。
+     */
     bool has_pending_writes() const {
         return !write_queue_.empty();
     }
 
+    /**
+     * @brief 获取当前待写入的数据。
+     */
     std::shared_ptr<WriteValue> current_write() {
         if (write_queue_.empty()) {
             return {};
@@ -100,34 +152,55 @@ protected:
         return write_queue_.front();
     }
 
+    /**
+     * @brief 消耗当前写入队列头部元素。
+     */
     void consume_write() {
         if (!write_queue_.empty()) {
             write_queue_.pop_front();
         }
     }
 
+    /**
+     * @brief 标记读取已开始。
+     */
     void mark_read_started() {
         read_in_progress_ = true;
     }
 
+    /**
+     * @brief 标记读取已结束。
+     */
     void mark_read_finished() {
         read_in_progress_ = false;
     }
 
+    /**
+     * @brief 标记写入已开始。
+     */
     void mark_write_started() {
         write_in_progress_ = true;
     }
 
+    /**
+     * @brief 标记写入已结束。
+     */
     void mark_write_finished() {
         write_in_progress_ = false;
     }
 
+    /**
+     * @brief 通知上层读取结果。
+     */
     void notify_read(boost::system::error_code ec, ReadValue value) {
         if (read_handler_) {
             read_handler_(ec, std::move(value));
         }
     }
 
+    /**
+     * @brief 触发协议层的读写调度。
+     */
     void schedule_operations() {
         auto* derived = static_cast<Derived*>(this);
 
