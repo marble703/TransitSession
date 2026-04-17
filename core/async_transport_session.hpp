@@ -1,12 +1,10 @@
 #pragma once
 
+#include <utility>
 
 #include <boost/asio.hpp>
 
 #include <deque>
-#include <functional>
-#include <memory>
-#include <utility>
 
 namespace session {
 /**
