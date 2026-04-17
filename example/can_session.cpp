@@ -7,13 +7,13 @@ int main() {
 
     session::can::CanConfig config {};
     config.interface_name = "can0";
-    config.enable_can_fd = true;
+    config.enable_can_fd  = true;
 
     boost::system::error_code ec;
     auto session = session::can::CanSession::create(io_context, config, &ec);
     if (ec) {
         std::cerr << "Error opening CAN interface: " << ec.message() << "\n";
-        return 0;
+        return 1;
     }
 
     session->set_read_handler([](boost::system::error_code read_ec, session::can::CanFrame frame) {
@@ -23,9 +23,17 @@ int main() {
         }
 
         std::cout << "CAN frame received: id=0x" << std::hex << frame.id << std::dec
-                  << ", len=" << frame.data_length
-                  << ", fd=" << (frame.fd_frame ? "yes" : "no") << "\n";
+                  << ", len=" << frame.data_length << ", fd=" << (frame.fd_frame ? "yes" : "no")
+                  << "\n";
     });
+
+    session->start_reading();
+    try {
+        io_context.run();
+    } catch (const std::exception& ex) {
+        std::cerr << "io_context.run() exception: " << ex.what() << "\n";
+        return 1;
+    }
 
     return 0;
 }

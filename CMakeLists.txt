@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+add_compile_definitions(BOOST_ASIO_NO_DEPRECATED)
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build.")
 endif()
@@ -40,5 +42,4 @@ target_link_libraries(TransitSessionCan
 
 target_compile_options(TransitSession PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionCan PRIVATE -Wall -Wextra -Wpedantic -Werror)
-
 

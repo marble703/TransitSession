@@ -20,7 +20,7 @@ public:
     /** @brief 读取回调类型。 */
     using Base        = AsyncTransportSession<SerialSession, std::vector<char>, std::vector<char>>;
     using ReadHandler = Base::ReadHandler;
-    using DuplexMode   = session::serial::DuplexMode;
+    using DuplexMode  = session::serial::DuplexMode;
 
     /**
      * @brief 构造一个串口会话。
@@ -103,6 +103,10 @@ public:
             return ec;
         }
 
+        if (config.read_buffer_size == 0U) {
+            return boost::system::errc::make_error_code(boost::system::errc::invalid_argument);
+        }
+
         duplex_mode_ = config.duplex_mode;
         read_buffer_.resize(config.read_buffer_size);
         return {};
@@ -180,7 +184,10 @@ public:
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this()](boost::system::error_code ec, std::size_t bytes_transferred) {
+                [this, self = shared_from_this()](
+                    boost::system::error_code ec,
+                    std::size_t bytes_transferred
+                ) {
                     mark_read_finished();
 
                     if (ec) {
@@ -191,7 +198,8 @@ public:
 
                     std::vector<char> data(
                         read_buffer_.begin(),
-                        read_buffer_.begin() + static_cast<std::vector<char>::difference_type>(bytes_transferred)
+                        read_buffer_.begin()
+                            + static_cast<std::vector<char>::difference_type>(bytes_transferred)
                     );
                     notify_read({}, std::move(data));
                     schedule_operations();
@@ -214,7 +222,10 @@ public:
             boost::asio::buffer(*buffer),
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this()](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
+                [this, self = shared_from_this()](
+                    boost::system::error_code ec,
+                    std::size_t /*bytes_transferred*/
+                ) {
                     mark_write_finished();
 
                     if (ec) {
@@ -237,7 +248,7 @@ public:
 
 private:
     boost::asio::serial_port socket_;
-    DuplexMode duplex_mode_ = DuplexMode::full_duplex;
+    DuplexMode duplex_mode_        = DuplexMode::full_duplex;
     std::vector<char> read_buffer_ = std::vector<char>(default_read_buffer_size);
 };
 

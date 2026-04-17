@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 #include <boost/asio.hpp>
 
 #include <deque>
@@ -59,11 +61,8 @@ public:
     void set_read_handler(ReadHandler read_handler) {
         boost::asio::post(
             strand_,
-            [this,
-             self         = this->shared_from_this(),
-             read_handler = std::move(read_handler)]() mutable {
-                read_handler_ = std::move(read_handler);
-            }
+            [this, self = this->shared_from_this(), read_handler = std::move(read_handler)](
+            ) mutable { read_handler_ = std::move(read_handler); }
         );
     }
 
@@ -157,10 +156,9 @@ private:
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand_,
-                [this, self = this->shared_from_this()](
-                    boost::system::error_code ec,
-                    std::size_t bytes_transferred
-                ) {
+                [this,
+                 self = this->shared_from_this(
+                 )](boost::system::error_code ec, std::size_t bytes_transferred) {
                     read_in_progress_ = false;
 
                     if (ec) {
