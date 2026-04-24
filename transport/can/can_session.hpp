@@ -53,11 +53,13 @@ public:
         boost::system::error_code* ec = nullptr
     ) {
         auto session = std::make_shared<CanSession>(io_context);
+        auto open_ec = session->open(config);
         if (ec) {
-            *ec = session->open(config);
-        } else {
-            boost::system::error_code ignored_ec = session->open(config);
-            (void)ignored_ec;
+            *ec = open_ec;
+        }
+
+        if (open_ec) {
+            return {};
         }
 
         return session;
@@ -78,9 +80,7 @@ public:
             return last_system_error();
         }
 
-        auto close_fd = [fd]() {
-            ::close(fd);
-        };
+        auto close_fd = [fd]() { ::close(fd); };
 
         auto ec = configure_socket(fd, config);
         if (ec) {
@@ -96,7 +96,7 @@ public:
 
         sockaddr_can addr {};
         addr.can_family  = AF_CAN;
-        addr.can_ifindex  = static_cast<int>(ifindex);
+        addr.can_ifindex = static_cast<int>(ifindex);
 
         if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
             close_fd();
@@ -148,7 +148,9 @@ public:
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this()](boost::system::error_code ec, std::size_t bytes_transferred) {
+                [this,
+                 self = shared_from_this(
+                 )](boost::system::error_code ec, std::size_t bytes_transferred) {
                     mark_read_finished();
 
                     if (ec) {
@@ -191,7 +193,9 @@ public:
             boost::asio::buffer(*encoded),
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this(), encoded](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
+                [this,
+                 self = shared_from_this(),
+                 encoded](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
                     mark_write_finished();
 
                     if (ec) {
@@ -216,7 +220,7 @@ public:
 
 private:
     static boost::system::error_code last_system_error() {
-        return {errno, boost::system::system_category()};
+        return { errno, boost::system::system_category() };
     }
 
     boost::system::error_code configure_socket(int fd, const CanConfig& config) {
@@ -236,7 +240,8 @@ private:
 
         {
             int recv_own = config.receive_own_messages ? 1 : 0;
-            if (::setsockopt(fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own, sizeof(recv_own)) < 0) {
+            if (::setsockopt(fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own, sizeof(recv_own))
+                < 0) {
                 return last_system_error();
             }
         }
@@ -247,7 +252,7 @@ private:
 
             for (const auto& filter: config.filters) {
                 can_filter raw_filter {};
-                raw_filter.can_id = filter.id;
+                raw_filter.can_id   = filter.id;
                 raw_filter.can_mask = filter.mask;
 
                 if (filter.extended_id) {
@@ -269,7 +274,9 @@ private:
                     CAN_RAW_FILTER,
                     raw_filters.data(),
                     static_cast<socklen_t>(raw_filters.size() * sizeof(can_filter))
-                ) < 0) {
+                )
+                < 0)
+            {
                 return last_system_error();
             }
         }
@@ -277,7 +284,10 @@ private:
         return {};
     }
 
-    boost::system::error_code decode_frame(std::size_t bytes_transferred, const std::array<std::uint8_t, sizeof(canfd_frame)>& raw_buffer) {
+    boost::system::error_code decode_frame(
+        std::size_t bytes_transferred,
+        const std::array<std::uint8_t, sizeof(canfd_frame)>& raw_buffer
+    ) {
         if (bytes_transferred == sizeof(can_frame)) {
             can_frame raw {};
             std::memcpy(&raw, raw_buffer.data(), sizeof(can_frame));
@@ -297,12 +307,12 @@ private:
 
     static CanFrame decode_classic_frame(const can_frame& raw) {
         CanFrame frame;
-        frame.id = raw.can_id & CAN_EFF_MASK;
-        frame.extended_id = (raw.can_id & CAN_EFF_FLAG) != 0U;
+        frame.id           = raw.can_id & CAN_EFF_MASK;
+        frame.extended_id  = (raw.can_id & CAN_EFF_FLAG) != 0U;
         frame.remote_frame = (raw.can_id & CAN_RTR_FLAG) != 0U;
-        frame.error_frame = (raw.can_id & CAN_ERR_FLAG) != 0U;
-        frame.fd_frame = false;
-        frame.data_length = raw.can_dlc;
+        frame.error_frame  = (raw.can_id & CAN_ERR_FLAG) != 0U;
+        frame.fd_frame     = false;
+        frame.data_length  = raw.can_dlc;
         frame.data.fill(0);
         for (std::size_t i = 0; i < frame.data_length && i < CanFrame::classic_data_size; ++i) {
             frame.data[i] = raw.data[i];
@@ -312,14 +322,14 @@ private:
 
     static CanFrame decode_fd_frame(const canfd_frame& raw) {
         CanFrame frame;
-        frame.id = raw.can_id & CAN_EFF_MASK;
-        frame.extended_id = (raw.can_id & CAN_EFF_FLAG) != 0U;
-        frame.remote_frame = (raw.can_id & CAN_RTR_FLAG) != 0U;
-        frame.error_frame = (raw.can_id & CAN_ERR_FLAG) != 0U;
-        frame.fd_frame = true;
-        frame.bitrate_switch = (raw.flags & CANFD_BRS) != 0U;
+        frame.id                    = raw.can_id & CAN_EFF_MASK;
+        frame.extended_id           = (raw.can_id & CAN_EFF_FLAG) != 0U;
+        frame.remote_frame          = (raw.can_id & CAN_RTR_FLAG) != 0U;
+        frame.error_frame           = (raw.can_id & CAN_ERR_FLAG) != 0U;
+        frame.fd_frame              = true;
+        frame.bitrate_switch        = (raw.flags & CANFD_BRS) != 0U;
         frame.error_state_indicator = (raw.flags & CANFD_ESI) != 0U;
-        frame.data_length = raw.len;
+        frame.data_length           = raw.len;
         frame.data.fill(0);
         for (std::size_t i = 0; i < frame.data_length && i < CanFrame::fd_data_size; ++i) {
             frame.data[i] = raw.data[i];
@@ -342,7 +352,7 @@ private:
             if (frame.remote_frame) {
                 raw.can_id |= CAN_RTR_FLAG;
             }
-            raw.len = static_cast<__u8>(frame.data_length);
+            raw.len   = static_cast<__u8>(frame.data_length);
             raw.flags = 0;
             if (frame.bitrate_switch) {
                 raw.flags |= CANFD_BRS;

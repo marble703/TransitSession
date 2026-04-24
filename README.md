@@ -16,6 +16,8 @@
 
 - `core/`
   - 通用异步调度核心
+  - `async_transport_session.hpp` 当前接口
+  - `async_session.hpp` 已废弃
 - `transport/serial/`
   - 串口配置与串口会话
 - `transport/can/`

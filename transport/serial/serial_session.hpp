@@ -42,11 +42,13 @@ public:
         boost::system::error_code* ec = nullptr
     ) {
         auto session = std::make_shared<SerialSession>(io_context);
+        auto open_ec = session->open(config);
         if (ec) {
-            *ec = session->open(config);
-        } else {
-            boost::system::error_code ignored_ec = session->open(config);
-            (void)ignored_ec;
+            *ec = open_ec;
+        }
+
+        if (open_ec) {
+            return {};
         }
 
         return session;
@@ -184,10 +186,9 @@ public:
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this()](
-                    boost::system::error_code ec,
-                    std::size_t bytes_transferred
-                ) {
+                [this,
+                 self = shared_from_this(
+                 )](boost::system::error_code ec, std::size_t bytes_transferred) {
                     mark_read_finished();
 
                     if (ec) {
