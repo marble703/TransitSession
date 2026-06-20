@@ -26,10 +26,6 @@ public:
      * @brief 构造一个串口会话。
      * @param io_context Boost.Asio 运行上下文。
      */
-    explicit SerialSession(boost::asio::io_context& io_context):
-        Base(io_context),
-        socket_(io_context) {}
-
     /**
      * @brief 创建并打开串口会话。
      * @param io_context Boost.Asio 运行上下文。
@@ -41,7 +37,7 @@ public:
         const SerialPortConfig& config,
         boost::system::error_code* ec = nullptr
     ) {
-        auto session = std::make_shared<SerialSession>(io_context);
+        auto session = std::shared_ptr<SerialSession>(new SerialSession(io_context));
         auto open_ec = session->open(config);
         if (ec) {
             *ec = open_ec;
@@ -133,7 +129,7 @@ public:
      * @brief 设置串口方向模式。
      */
     void set_duplex_mode(DuplexMode duplex_mode) {
-        boost::asio::post(strand(), [this, self = shared_from_this(), duplex_mode]() {
+        boost::asio::dispatch(strand(), [this, self = shared_from_this(), duplex_mode]() {
             duplex_mode_ = duplex_mode;
             schedule_operations();
         });
@@ -143,7 +139,7 @@ public:
      * @brief 设置读取缓冲区大小。
      */
     void set_read_buffer_size(std::size_t read_buffer_size) {
-        boost::asio::post(strand(), [this, self = shared_from_this(), read_buffer_size]() {
+        boost::asio::dispatch(strand(), [this, self = shared_from_this(), read_buffer_size]() {
             if (is_read_in_progress() || read_buffer_size == 0U) {
                 return;
             }
@@ -172,7 +168,7 @@ public:
         }
 
         if (duplex_mode_ == DuplexMode::half_duplex) {
-            return !is_read_in_progress();
+            return !is_read_in_progress() && !read_pause_for_write_;
         }
 
         return true;
@@ -181,15 +177,22 @@ public:
     /** @brief 启动一次异步读取。 */
     void do_read() {
         mark_read_started();
+        read_pause_for_write_ = false;
 
         socket_.async_read_some(
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand(),
-                [this,
-                 self = shared_from_this(
-                 )](boost::system::error_code ec, std::size_t bytes_transferred) {
+                [this, self = shared_from_this()](
+                    boost::system::error_code ec,
+                    std::size_t bytes_transferred
+                ) {
                     mark_read_finished();
+
+                    if (read_pause_for_write_ && ec == boost::asio::error::operation_aborted) {
+                        schedule_operations();
+                        return;
+                    }
 
                     if (ec) {
                         notify_read(ec, {});
@@ -216,6 +219,13 @@ public:
             return;
         }
 
+        if (duplex_mode_ == DuplexMode::half_duplex && is_read_in_progress()) {
+            read_pause_for_write_ = true;
+            boost::system::error_code ec;
+            socket_.cancel(ec);
+            return;
+        }
+
         mark_write_started();
 
         boost::asio::async_write(
@@ -223,7 +233,7 @@ public:
             boost::asio::buffer(*buffer),
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this()](
+                [this, self = shared_from_this(), buffer = std::move(buffer)](
                     boost::system::error_code ec,
                     std::size_t /*bytes_transferred*/
                 ) {
@@ -248,9 +258,14 @@ public:
     }
 
 private:
+    explicit SerialSession(boost::asio::io_context& io_context):
+        Base(io_context),
+        socket_(io_context) {}
+
     boost::asio::serial_port socket_;
     DuplexMode duplex_mode_        = DuplexMode::full_duplex;
     std::vector<char> read_buffer_ = std::vector<char>(default_read_buffer_size);
+    bool read_pause_for_write_     = false;
 };
 
 } // namespace session::serial

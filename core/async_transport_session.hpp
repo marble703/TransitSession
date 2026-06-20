@@ -34,7 +34,7 @@ public:
      * @param read_handler 读取完成后调用的处理函数。
      */
     void set_read_handler(ReadHandler read_handler) {
-        boost::asio::post(
+        boost::asio::dispatch(
             strand_,
             [this,
              self         = derived_shared_from_this(),
@@ -48,7 +48,11 @@ public:
      * @brief 启动异步读取调度。
      */
     void start_reading() {
-        boost::asio::post(strand_, [this, self = derived_shared_from_this()]() {
+        boost::asio::dispatch(strand_, [this, self = derived_shared_from_this()]() {
+            if (closed_) {
+                return;
+            }
+
             read_enabled_ = true;
             schedule_operations();
         });
@@ -58,7 +62,7 @@ public:
      * @brief 停止后续读取调度。
      */
     void stop_reading() {
-        boost::asio::post(strand_, [this, self = derived_shared_from_this()]() {
+        boost::asio::dispatch(strand_, [this, self = derived_shared_from_this()]() {
             read_enabled_ = false;
         });
     }
@@ -68,9 +72,13 @@ public:
      * @param message 协议层定义的发送数据。
      */
     void send(WriteValue message) {
-        boost::asio::post(
+        boost::asio::dispatch(
             strand_,
             [this, self = derived_shared_from_this(), message = std::move(message)]() mutable {
+                if (closed_) {
+                    return;
+                }
+
                 write_queue_.push_back(std::make_shared<WriteValue>(std::move(message)));
                 schedule_operations();
             }
@@ -81,7 +89,7 @@ public:
      * @brief 关闭会话并清空待发送队列。
      */
     void close() {
-        boost::asio::post(strand_, [this, self = derived_shared_from_this()]() {
+        boost::asio::dispatch(strand_, [this, self = derived_shared_from_this()]() {
             if (closed_) {
                 return;
             }

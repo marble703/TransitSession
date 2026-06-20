@@ -37,10 +37,6 @@ public:
      * @brief 构造一个 CAN 会话。
      * @param io_context Boost.Asio 运行上下文。
      */
-    explicit CanSession(boost::asio::io_context& io_context):
-        Base(io_context),
-        socket_(io_context) {}
-
     /**
      * @brief 创建并打开 CAN 会话。
      * @param io_context Boost.Asio 运行上下文。
@@ -52,7 +48,7 @@ public:
         const CanConfig& config,
         boost::system::error_code* ec = nullptr
     ) {
-        auto session = std::make_shared<CanSession>(io_context);
+        auto session = std::shared_ptr<CanSession>(new CanSession(io_context));
         auto open_ec = session->open(config);
         if (ec) {
             *ec = open_ec;
@@ -90,8 +86,9 @@ public:
 
         const unsigned int ifindex = ::if_nametoindex(config.interface_name.c_str());
         if (ifindex == 0U) {
+            const auto ec = last_system_error();
             close_fd();
-            return last_system_error();
+            return ec;
         }
 
         sockaddr_can addr {};
@@ -99,8 +96,9 @@ public:
         addr.can_ifindex = static_cast<int>(ifindex);
 
         if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+            const auto ec = last_system_error();
             close_fd();
-            return last_system_error();
+            return ec;
         }
 
         try {
@@ -148,9 +146,10 @@ public:
             boost::asio::buffer(read_buffer_),
             boost::asio::bind_executor(
                 strand(),
-                [this,
-                 self = shared_from_this(
-                 )](boost::system::error_code ec, std::size_t bytes_transferred) {
+                [this, self = shared_from_this()](
+                    boost::system::error_code ec,
+                    std::size_t bytes_transferred
+                ) {
                     mark_read_finished();
 
                     if (ec) {
@@ -214,11 +213,14 @@ public:
     void close_transport() {
         try {
             socket_.close();
-        } catch (const boost::system::system_error&) {
-        }
+        } catch (const boost::system::system_error&) {}
     }
 
 private:
+    explicit CanSession(boost::asio::io_context& io_context):
+        Base(io_context),
+        socket_(io_context) {}
+
     static boost::system::error_code last_system_error() {
         return { errno, boost::system::system_category() };
     }
@@ -241,7 +243,8 @@ private:
         {
             int recv_own = config.receive_own_messages ? 1 : 0;
             if (::setsockopt(fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &recv_own, sizeof(recv_own))
-                < 0) {
+                < 0)
+            {
                 return last_system_error();
             }
         }
