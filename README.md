@@ -24,6 +24,7 @@
   - CAN 帧、配置与 SocketCAN 会话
 - `example/`
   - 示例程序
+  - benchmark 小工具
 
 ## 构建
 
@@ -33,3 +34,27 @@
 cmake -S . -B build
 cmake --build build -j
 ```
+
+## Benchmark
+
+当前提供两个简单的通信延时 benchmark：
+
+- `TransitSessionSerialBenchmark`
+  - 对串口设备发送固定长度 payload，并等待设备原样回显
+  - 统计 RTT 的 `min/avg/p50/p95/max`
+- `TransitSessionCanBenchmark`
+  - 依赖 SocketCAN 本地回环
+  - 发送单帧并等待同一接口回环返回
+  - 统计 RTT 的 `min/avg/p50/p95/max`
+
+示例：
+
+```bash
+./build/TransitSessionSerialBenchmark --device /dev/ttyACM0 --baud 115200 --payload 32 --samples 1000
+./build/TransitSessionCanBenchmark --if can0 --id 0x123 --samples 1000
+```
+
+说明：
+
+- 串口 benchmark 需要对端做“收到什么就回什么”的回显
+- CAN benchmark 需要接口启用 loopback，程序内部会打开 `receive_own_messages`

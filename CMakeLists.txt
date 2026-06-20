@@ -23,8 +23,18 @@ add_executable(TransitSessionCan
     example/can_session.cpp
 )
 
+add_executable(TransitSessionSerialBenchmark
+    example/serial_benchmark.cpp
+)
+
+add_executable(TransitSessionCanBenchmark
+    example/can_benchmark.cpp
+)
+
 target_include_directories(TransitSession PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionCan PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(TransitSessionSerialBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(TransitSessionCanBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
 
 target_link_libraries(TransitSession
     PRIVATE
@@ -40,6 +50,21 @@ target_link_libraries(TransitSessionCan
         Threads::Threads
 )
 
+target_link_libraries(TransitSessionSerialBenchmark
+    PRIVATE
+        Boost::system
+        Boost::thread
+        Threads::Threads
+)
+
+target_link_libraries(TransitSessionCanBenchmark
+    PRIVATE
+        Boost::system
+        Boost::thread
+        Threads::Threads
+)
+
 target_compile_options(TransitSession PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionCan PRIVATE -Wall -Wextra -Wpedantic -Werror)
-
+target_compile_options(TransitSessionSerialBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(TransitSessionCanBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
