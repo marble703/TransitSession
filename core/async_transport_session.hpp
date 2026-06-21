@@ -72,15 +72,15 @@ public:
      * @param message 协议层定义的发送数据。
      */
     void send(WriteValue message) {
+        if (strand_.running_in_this_thread()) {
+            enqueue_write(std::move(message));
+            return;
+        }
+
         boost::asio::dispatch(
             strand_,
             [this, self = derived_shared_from_this(), message = std::move(message)]() mutable {
-                if (closed_) {
-                    return;
-                }
-
-                write_queue_.push_back(std::make_shared<WriteValue>(std::move(message)));
-                schedule_operations();
+                enqueue_write(std::move(message));
             }
         );
     }
@@ -151,12 +151,12 @@ protected:
     /**
      * @brief 获取当前待写入的数据。
      */
-    std::shared_ptr<WriteValue> current_write() {
+    WriteValue* current_write() {
         if (write_queue_.empty()) {
-            return {};
+            return nullptr;
         }
 
-        return write_queue_.front();
+        return &write_queue_.front();
     }
 
     /**
@@ -225,9 +225,18 @@ private:
         return static_cast<Derived*>(this)->shared_from_this();
     }
 
+    void enqueue_write(WriteValue message) {
+        if (closed_) {
+            return;
+        }
+
+        write_queue_.push_back(std::move(message));
+        schedule_operations();
+    }
+
     boost::asio::strand<boost::asio::io_context::executor_type> strand_;
     ReadHandler read_handler_;
-    std::deque<std::shared_ptr<WriteValue>> write_queue_;
+    std::deque<WriteValue> write_queue_;
 
     bool read_enabled_      = false;
     bool read_in_progress_  = false;
