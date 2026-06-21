@@ -6,6 +6,7 @@
 .clangd
 
 build/
+build-*/
 log/
 
 *.log
