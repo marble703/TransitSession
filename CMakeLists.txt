@@ -23,6 +23,10 @@ add_executable(TransitSessionCan
     example/can_session.cpp
 )
 
+add_executable(TransitSessionWebSocket
+    example/websocket_session.cpp
+)
+
 add_executable(TransitSessionSerialBenchmark
     example/serial_benchmark.cpp
 )
@@ -33,6 +37,7 @@ add_executable(TransitSessionCanBenchmark
 
 target_include_directories(TransitSession PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionCan PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(TransitSessionWebSocket PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionSerialBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionCanBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
 
@@ -44,6 +49,13 @@ target_link_libraries(TransitSession
 )
 
 target_link_libraries(TransitSessionCan
+    PRIVATE
+        Boost::system
+        Boost::thread
+        Threads::Threads
+)
+
+target_link_libraries(TransitSessionWebSocket
     PRIVATE
         Boost::system
         Boost::thread
@@ -66,5 +78,6 @@ target_link_libraries(TransitSessionCanBenchmark
 
 target_compile_options(TransitSession PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionCan PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(TransitSessionWebSocket PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionSerialBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionCanBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
