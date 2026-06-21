@@ -227,13 +227,15 @@ public:
         }
 
         mark_write_started();
+        auto write_buffer = buffer;
+        const auto asio_buffer = boost::asio::buffer(*write_buffer);
 
         boost::asio::async_write(
             socket_,
-            boost::asio::buffer(*buffer),
+            asio_buffer,
             boost::asio::bind_executor(
                 strand(),
-                [this, self = shared_from_this(), buffer = std::move(buffer)](
+                [this, self = shared_from_this(), write_buffer = std::move(write_buffer)](
                     boost::system::error_code ec,
                     std::size_t /*bytes_transferred*/
                 ) {
