@@ -27,6 +27,14 @@ add_executable(TransitSessionWebSocket
     example/websocket_session.cpp
 )
 
+add_executable(TransitSessionWebSocketServer
+    example/websocket_server.cpp
+)
+
+add_executable(TransitSessionWebSocketBenchmark
+    example/websocket_benchmark.cpp
+)
+
 add_executable(TransitSessionSerialBenchmark
     example/serial_benchmark.cpp
 )
@@ -38,6 +46,8 @@ add_executable(TransitSessionCanBenchmark
 target_include_directories(TransitSession PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionCan PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionWebSocket PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(TransitSessionWebSocketServer PRIVATE ${CMAKE_SOURCE_DIR})
+target_include_directories(TransitSessionWebSocketBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionSerialBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
 target_include_directories(TransitSessionCanBenchmark PRIVATE ${CMAKE_SOURCE_DIR})
 
@@ -62,6 +72,20 @@ target_link_libraries(TransitSessionWebSocket
         Threads::Threads
 )
 
+target_link_libraries(TransitSessionWebSocketServer
+    PRIVATE
+        Boost::system
+        Boost::thread
+        Threads::Threads
+)
+
+target_link_libraries(TransitSessionWebSocketBenchmark
+    PRIVATE
+        Boost::system
+        Boost::thread
+        Threads::Threads
+)
+
 target_link_libraries(TransitSessionSerialBenchmark
     PRIVATE
         Boost::system
@@ -79,5 +103,7 @@ target_link_libraries(TransitSessionCanBenchmark
 target_compile_options(TransitSession PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionCan PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionWebSocket PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(TransitSessionWebSocketServer PRIVATE -Wall -Wextra -Wpedantic -Werror)
+target_compile_options(TransitSessionWebSocketBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionSerialBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
 target_compile_options(TransitSessionCanBenchmark PRIVATE -Wall -Wextra -Wpedantic -Werror)
